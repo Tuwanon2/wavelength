@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wavelength - V2 ลื่นไหล</title>
+    <title>Wavelength - V2 พร้อมสอนเล่น</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap');
 
@@ -17,11 +17,87 @@
             justify-content: center;
             height: 100vh;
             overflow: hidden;
-            touch-action: none; /* ห้ามเลื่อนหน้าจอ */
-            user-select: none; /* ห้ามคลุมดำตัวหนังสือ */
+            touch-action: none;
+            user-select: none;
             -webkit-user-select: none;
         }
 
+        /* --- ปุ่มสอนเล่น (มุมซ้ายบน) --- */
+        .btn-rules {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            color: #34495e;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border: none;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-family: 'Kanit', sans-serif;
+        }
+        .btn-rules:hover { background: #ecf0f1; }
+        .btn-rules:active { transform: scale(0.95); }
+
+        /* --- Modal Popup สอนเล่น --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            max-height: 85vh;
+            overflow-y: auto;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            text-align: left;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+            background: none;
+            border: none;
+        }
+        .rule-step {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .rule-step:last-child { border-bottom: none; }
+        .rule-title { font-weight: bold; font-size: 1.1rem; color: #2c3e50; margin-bottom: 5px; }
+        .rule-desc { font-size: 0.95rem; color: #555; line-height: 1.6; }
+        .highlight { color: #d35400; font-weight: bold; }
+
+        /* --- Styles เดิม --- */
         .game-card {
             background: white;
             border-radius: 24px;
@@ -46,35 +122,19 @@
         .right-word { color: #2980b9; text-align: right; width: 45%; line-height: 1.2; }
         .arrow-divider { font-size: 2rem; color: #ccc; }
 
-        /* พื้นที่หน้าปัด */
         .dial-wrapper {
             position: relative;
             width: 100%;
-            max-width: 400px; /* ขยายให้ใหญ่ขึ้น */
+            max-width: 400px;
             margin: 0 auto 20px auto;
             cursor: pointer;
-            /* ทำให้รู้สึกเหมือนจับต้องได้ */
             transition: transform 0.1s;
         }
-        .dial-wrapper:active {
-            cursor: grabbing;
-            transform: scale(1.02);
-        }
+        .dial-wrapper:active { cursor: grabbing; transform: scale(1.02); }
 
-        svg {
-            width: 100%;
-            height: auto;
-            display: block;
-            overflow: visible;
-        }
+        svg { width: 100%; height: auto; display: block; overflow: visible; }
+        #screen-cover { transition: opacity 0.4s ease-in-out; pointer-events: none; }
 
-        /* Screen Cover Animation */
-        #screen-cover {
-            transition: opacity 0.4s ease-in-out;
-            pointer-events: none;
-        }
-
-        /* Controls */
         .controls {
             display: flex;
             gap: 15px;
@@ -83,7 +143,7 @@
             flex-wrap: wrap;
         }
 
-        button {
+        button.game-btn {
             padding: 14px 28px;
             border: none;
             border-radius: 50px;
@@ -95,8 +155,7 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             min-width: 140px;
         }
-        button:active { transform: scale(0.95); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-
+        button.game-btn:active { transform: scale(0.95); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .btn-hide { background-color: #34495e; color: white; }
         .btn-next { background-color: #8e44ad; color: white; }
 
@@ -105,7 +164,7 @@
             margin-top: 20px;
             font-weight: bold;
             color: #7f8c8d;
-            height: 50px; /* Fix height to prevent jumping */
+            height: 50px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -113,6 +172,53 @@
     </style>
 </head>
 <body>
+
+    <button class="btn-rules" onclick="toggleRules()">
+        <span style="font-size:1.2rem;">📖</span> วิธีเล่น
+    </button>
+
+    <div class="modal-overlay" id="rulesModal" onclick="toggleRules(event)">
+        <div class="modal-content" onclick="event.stopPropagation()"> <button class="modal-close" onclick="toggleRules()">✕</button>
+            <h2 style="text-align:center; color:#8e44ad; margin-top:0;">วิธีเล่น Wavelength</h2>
+            
+            <div class="rule-step">
+                <div class="rule-title">1. เริ่มต้น (ตาคนใบ้)</div>
+                <div class="rule-desc">
+                    ผู้เล่น 1 คนรับบทเป็น <span class="highlight">"คนใบ้"</span> (Psychic) กดปุ่ม <span class="highlight">"โจทย์ใหม่"</span> ระบบจะสุ่มคำตรงข้ามกัน (เช่น ร้อน - หนาว) และสุ่มตำแหน่งเป้าหมายสีๆ ขึ้นมา (ซึ่งคนอื่นห้ามดู!)
+                </div>
+            </div>
+
+            <div class="rule-step">
+                <div class="rule-title">2. ใบ้คำ</div>
+                <div class="rule-desc">
+                    คนใบ้ดูว่าเป้าหมายอยู่ตรงไหน แล้วพูด <span class="highlight">"คำใบ้ 1 คำ"</span> ที่คิดว่าสื่อถึงระดับนั้น<br>
+                    <em>ตัวอย่าง: "ร้อน - หนาว" เป้าหมายอยู่ค่อนไปทางร้อน แต่ไม่สุด... คนใบ้พูดว่า <strong>"กาแฟ"</strong></em><br>
+                    จากนั้นกดปุ่ม <span class="highlight">"ปิดฉาก"</span> เพื่อซ่อนเป้าหมาย
+                </div>
+            </div>
+
+            <div class="rule-step">
+                <div class="rule-title">3. ทีมทาย (หมุนเข็ม)</div>
+                <div class="rule-desc">
+                    เพื่อนๆ ในทีมปรึกษากันว่า "กาแฟ" มันร้อนระดับไหนในสเกลนี้? แล้วช่วยกัน <span class="highlight">หมุนเข็มสีแดง</span> ไปยังจุดที่คิดว่าใช่
+                </div>
+            </div>
+
+            <div class="rule-step">
+                <div class="rule-title">4. เฉลยคะแนน</div>
+                <div class="rule-desc">
+                    เมื่อมั่นใจ ให้กด <span class="highlight">"เปิดฉาก"</span> เพื่อดูว่าเข็มตรงกับเป้าไหม<br>
+                    🎯 <strong>ตรงกลางเป๊ะ:</strong> 4 คะแนน<br>
+                    🟠 <strong>ขอบส้ม:</strong> 3 คะแนน<br>
+                    🟡 <strong>ขอบเหลือง:</strong> 2 คะแนน
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-top:10px;">
+                <button class="game-btn btn-next" onclick="toggleRules()" style="padding:10px 30px; min-width:auto;">เข้าใจแล้ว!</button>
+            </div>
+        </div>
+    </div>
 
     <div class="game-card">
         <h3 style="margin:0 0 20px 0; color:#bdc3c7; text-transform:uppercase; letter-spacing:2px;">Wavelength</h3>
@@ -126,7 +232,6 @@
         <div class="dial-wrapper" id="dial-area">
             <svg viewBox="0 0 220 120">
                 <path d="M 10 110 A 100 100 0 0 1 210 110" fill="none" stroke="#ecf0f1" stroke-width="20" stroke-linecap="round"/>
-                
                 <path d="M 10 110 A 100 100 0 0 1 210 110" fill="none" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="2 8" opacity="0.5"/>
 
                 <g id="target-group" transform="rotate(0, 110, 110)">
@@ -148,14 +253,14 @@
         <div class="score-display" id="score-text">...</div>
 
         <div class="controls">
-            <button class="btn-hide" onclick="toggleScreen()">👁 เปิด/ปิด ฉาก</button>
-            <button class="btn-next" onclick="newRound()">🎲 โจทย์ใหม่</button>
+            <button class="game-btn btn-hide" onclick="toggleScreen()">👁 เปิด/ปิด ฉาก</button>
+            <button class="game-btn btn-next" onclick="newRound()">🎲 โจทย์ใหม่</button>
         </div>
         <p style="font-size: 0.8rem; color: #aaa; margin-top: 15px;">คลิกและลากที่หน้าปัดเพื่อหมุนเข็ม</p>
     </div>
 
     <script>
-        // --- คลังคำ (เพิ่มให้เยอะขึ้นและหลากหลาย) ---
+        // --- คลังคำ ---
         const categories = [
             ["ร้อน", "หนาว"], ["อร่อย", "ไม่อร่อย"], ["มีประโยชน์", "ไร้สาระ"],
             ["งานอดิเรกคนรวย", "งานอดิเรกคนจน"], ["หนังดี", "หนังแย่"], ["ฉลาด", "โง่"],
@@ -173,8 +278,8 @@
         ];
 
         // --- ตัวแปรระบบ ---
-        let targetAngle = 90; // เป้าหมาย (0=ซ้าย, 90=กลาง, 180=ขวา) -- แต่ใน SVG เราจะแมพค่าอีกที
-        let currentPointerValue = 0; // 0 ถึง 180 (ซ้ายไปขวา)
+        let targetAngle = 90;
+        let currentPointerValue = 0;
         let isScreenClosed = true;
         let isDragging = false;
 
@@ -183,14 +288,19 @@
         const targetGroup = document.getElementById('target-group');
         const screenCover = document.getElementById('screen-cover');
         const scoreText = document.getElementById('score-text');
+        const rulesModal = document.getElementById('rulesModal');
 
-        // --- ฟังก์ชันคำนวณมุม (หัวใจสำคัญของการหมุน) ---
+        // --- Logic สอนเล่น ---
+        function toggleRules(e) {
+            // ถ้าเป็นการคลิกที่ Overlay หรือปุ่มปิด
+            if (!e || e.target === rulesModal || e.target.closest('.btn-rules') || e.target.closest('.modal-close') || e.target.closest('.btn-next')) {
+                rulesModal.classList.toggle('active');
+            }
+        }
+
+        // --- ฟังก์ชันคำนวณมุม ---
         function calculateAngle(e) {
-            // หาตำแหน่งกึ่งกลางของหน้าปัด (จุดหมุน 110, 110 ใน SVG)
             const rect = dialArea.getBoundingClientRect();
-            // จุดหมุนอยู่ตรงกลางแนวนอน และอยู่ด้านล่างของกล่อง SVG
-            // SVG viewBox คือ 220x120, จุดหมุนคือ (110, 110)
-            // เทียบสัดส่วน: จุดหมุน X คือ 50% ของ width, Y คือ (110/120) = 91.6% ของ height
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + (rect.height * (110/120)); 
 
@@ -205,22 +315,11 @@
 
             const dx = clientX - centerX;
             const dy = clientY - centerY;
-
-            // Math.atan2(y, x) ให้ค่ามุมเป็น Radians
-            // ผลลัพธ์: ขวา=0, บน=-PI/2, ซ้าย=PI (หรือ -PI)
-            // เราต้องการแมพให้: ซ้าย=0 deg, บน=90 deg, ขวา=180 deg (เพื่อให้เข้าใจง่าย)
             
             let rad = Math.atan2(dy, dx); 
-            let deg = rad * (180 / Math.PI); // แปลงเป็นองศา (-180 ถึง 180)
-
-            // ในระบบ atan2:
-            // ซ้าย (-180) ... บน (-90) ... ขวา (0)
-            // เราอยากได้ค่า 0..180 โดย 0 คือซ้าย
-            // สูตร: gameValue = deg + 180
-            
+            let deg = rad * (180 / Math.PI);
             let gameValue = deg + 180;
 
-            // Clamp ค่าให้อยู่แค่ในครึ่งวงกลม (0-180)
             if (gameValue < 0) gameValue = 0;
             if (gameValue > 180) gameValue = 180;
 
@@ -229,27 +328,19 @@
 
         function updateDialVisual(val0to180) {
             currentPointerValue = val0to180;
-            // ใน SVG ของเรา:
-            // Group เริ่มต้นที่ Rotation 0 = ชี้ไปทางซ้าย (ตามเส้น Line x2=10)
-            // ถ้า gameValue = 0 (ซ้ายสุด) -> ต้อง Rotate 0
-            // ถ้า gameValue = 90 (ตรงกลาง) -> ต้อง Rotate 90
-            // ถ้า gameValue = 180 (ขวาสุด) -> ต้อง Rotate 180
-            // สรุปคือใช้ค่า gameValue ใส่ rotate ได้เลย!
             pointerGroup.setAttribute('transform', `rotate(${val0to180}, 110, 110)`);
         }
 
-        // --- Event Listeners (รองรับทั้ง Mouse และ Touch แบบสมบูรณ์) ---
-        
+        // --- Event Listeners ---
         function onDragStart(e) {
             isDragging = true;
-            // คำนวณทันทีที่แตะ
             const angle = calculateAngle(e);
             updateDialVisual(angle);
         }
 
         function onDragMove(e) {
             if (!isDragging) return;
-            e.preventDefault(); // กันจอลาก
+            e.preventDefault(); 
             const angle = calculateAngle(e);
             updateDialVisual(angle);
         }
@@ -258,55 +349,37 @@
             isDragging = false;
         }
 
-        // Mouse Events
         dialArea.addEventListener('mousedown', onDragStart);
-        window.addEventListener('mousemove', onDragMove); // ใช้ window เพื่อให้ลากหลุดกรอบได้
+        window.addEventListener('mousemove', onDragMove);
         window.addEventListener('mouseup', onDragEnd);
 
-        // Touch Events
         dialArea.addEventListener('touchstart', onDragStart, {passive: false});
         window.addEventListener('touchmove', onDragMove, {passive: false});
         window.addEventListener('touchend', onDragEnd);
 
-
         // --- Game Logic ---
-
         function newRound() {
-            // 1. สุ่มคำ
             const pair = categories[Math.floor(Math.random() * categories.length)];
             document.getElementById('word-left').innerText = pair[0];
             document.getElementById('word-right').innerText = pair[1];
 
-            // 2. สุ่มเป้าหมาย (เว้นขอบข้างละ 15 องศา เพื่อไม่ให้ยากเกิน)
-            // targetAngle ของเราคือ 0(ซ้าย) - 180(ขวา)
             targetAngle = Math.floor(Math.random() * 150) + 15;
-            
-            // หมุน SVG Target
-            // Target Group เริ่มต้นที่ 0 องศา = ตั้งตรงกลาง (90 ในระบบ gameValue ของเรา)
-            // ถ้า targetAngle = 90 -> rotate(0)
-            // ถ้า targetAngle = 0 (ซ้าย) -> rotate(-90)
-            // ถ้า targetAngle = 180 (ขวา) -> rotate(90)
-            // สูตร: rotate = targetAngle - 90
             const rotationOffset = targetAngle - 90;
             targetGroup.setAttribute('transform', `rotate(${rotationOffset}, 110, 110)`);
 
-            // 3. รีเซ็ตสถานะ (เปิดให้คนใบ้ดูก่อน)
             isScreenClosed = false; 
-            screenCover.style.opacity = "0.15"; // จางๆ ให้คนใบ้เห็นเป้า
+            screenCover.style.opacity = "0.15"; 
             scoreText.innerHTML = "<span style='color:#d35400'>ตาคนใบ้: ดูเป้าหมาย ➝ บอกคำใบ้ ➝ ปิดฉาก</span>";
             
-            // รีเซ็ตเข็มไปตรงกลางเพื่อความแฟร์
             updateDialVisual(90);
         }
 
         function toggleScreen() {
             if (isScreenClosed) {
-                // เปิดฉาก (เฉลย)
                 screenCover.style.opacity = "0"; 
                 isScreenClosed = false;
                 calculateScore();
             } else {
-                // ปิดฉาก (เริ่มทาย)
                 screenCover.style.opacity = "1";
                 isScreenClosed = true;
                 scoreText.innerHTML = "<span style='color:#2980b9'>ตาทีมทาย: หมุนเข็มแดง ➝ มั่นใจแล้วกดเปิด</span>";
@@ -319,22 +392,18 @@
             let msg = "";
             let color = "";
 
-            // โซนคะแนน (อิงจากมุมองศา)
             if (diff <= 4) { 
                 points = 4; msg = "🎯 เป๊ะเวอร์!! (4 คะแนน)"; color = "#e74c3c";
             } else if (diff <= 12) {
                 points = 3; msg = "👏 เก่งมาก! (3 คะแนน)"; color = "#e67e22";
             } else if (diff <= 22) {
-                points = 2; msg = "👍 ใช้ได้ (2 คะแนน)"; color = "#f1c40f"; // เหลืองเข้ม
+                points = 2; msg = "👍 ใช้ได้ (2 คะแนน)"; color = "#f1c40f"; 
             } else {
                 points = 0; msg = "😅 ว่าวครับ (0 คะแนน)"; color = "#95a5a6";
             }
-            
-            // ทำให้ Text เด้งๆ หน่อย
             scoreText.innerHTML = `<span style='color:${color}; font-size:1.6rem; text-shadow:0 2px 4px rgba(0,0,0,0.1)'>${msg}</span>`;
         }
 
-        // เริ่มเกมครั้งแรก
         newRound();
 
     </script>
