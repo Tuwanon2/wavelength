@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wavelength - ฉบับเล่นบน iPad</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap');
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none; /* ป้องกันการเลื่อนหน้าจอเวลาหมุนเข็ม */
+        }
+
+        /* Card Container */
+        .game-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            width: 90%;
+            max-width: 600px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Spectrum Words */
+        .spectrum-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        .left-word { color: #d35400; text-align: left; width: 45%; }
+        .right-word { color: #2980b9; text-align: right; width: 45%; }
+        
+        /* The Dial Area */
+        .dial-wrapper {
+            position: relative;
+            width: 300px;
+            height: 150px; /* Half circle height */
+            margin: 0 auto 30px auto;
+        }
+
+        /* SVG Semicircle */
+        svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* The Screen (Cover) */
+        #screen-cover {
+            transition: opacity 0.5s ease;
+            opacity: 1; /* Default hidden */
+            pointer-events: none;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 50px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button:active { transform: scale(0.95); }
+
+        .btn-reveal { background-color: #27ae60; color: white; }
+        .btn-hide { background-color: #7f8c8d; color: white; }
+        .btn-next { background-color: #8e44ad; color: white; }
+
+        .score-display {
+            font-size: 1.5rem;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #2c3e50;
+            height: 40px;
+        }
+
+        /* Target Zone Gradient */
+        /* Note: We manipulate the SVG rotation for the target */
+    </style>
+</head>
+<body>
+
+    <div class="game-card">
+        <h2 style="margin-top:0; color:#555;">WAVELENGTH</h2>
+
+        <div class="spectrum-container">
+            <div class="left-word" id="word-left">ร้อน</div>
+            <div style="font-size:2rem;">↔</div>
+            <div class="right-word" id="word-right">หนาว</div>
+        </div>
+
+        <div class="dial-wrapper" id="dial-area">
+            <svg viewBox="0 0 200 100">
+                <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="#e0e0e0" stroke-width="20" stroke-linecap="round"/>
+                
+                <g id="target-group" transform="rotate(0, 100, 100)">
+                    <path d="M 100 100 L 82 15 A 90 90 0 0 1 118 15 Z" fill="#f1c40f" opacity="0.5"/>
+                    <path d="M 100 100 L 88 12 A 90 90 0 0 1 112 12 Z" fill="#e67e22" opacity="0.7"/>
+                    <path d="M 100 100 L 93 10 A 90 90 0 0 1 107 10 Z" fill="#e74c3c"/>
+                </g>
+
+                <path id="screen-cover" d="M 5 100 A 95 95 0 0 1 195 100" fill="#3498db" stroke="none"/>
+
+                <g id="pointer-group" transform="rotate(90, 100, 100)">
+                    <line x1="100" y1="100" x2="10" y2="100" stroke="#c0392b" stroke-width="4" stroke-linecap="round" />
+                    <circle cx="100" cy="100" r="5" fill="#c0392b"/>
+                </g>
+            </svg>
+        </div>
+
+        <div class="score-display" id="score-text">สถานะ: ปิดเป้าหมายอยู่ (ให้คนใบ้ดู)</div>
+
+        <div class="controls">
+            <button class="btn-hide" onclick="toggleScreen()">เปิด/ปิด ฉากกั้น</button>
+            <button class="btn-next" onclick="newRound()">สุ่มโจทย์ใหม่</button>
+        </div>
+        <p style="font-size: 0.8rem; color: #999; margin-top: 10px;">*แตะที่หน้าปัดแล้วลากเพื่อหมุนเข็ม</p>
+    </div>
+
+    <script>
+        // --- Game Data (Thai Categories) ---
+        const categories = [
+            ["ร้อน", "หนาว"],
+            ["อร่อย", "ไม่อร่อย"],
+            ["มีประโยชน์", "ไร้สาระ"],
+            ["งานอดิเรกคนรวย", "งานอดิเรกคนจน"],
+            ["หนังดี", "หนังแย่"],
+            ["ฉลาด", "โง่"],
+            ["เพลงเศร้า", "เพลงมีความสุข"],
+            ["ของกินเล่น", "อาหารมื้อหลัก"],
+            ["กลิ่นหอม", "กลิ่นเหม็น"],
+            ["ฮีโร่", "ตัวร้าย"],
+            ["สิ่งที่ทำยาก", "สิ่งที่ทำง่าย"],
+            ["ถูกกฎหมาย", "ผิดกฎหมาย"],
+            ["คนรัก", "คนเกลียด"],
+            ["สกปรก", "สะอาด"],
+            ["น่ากลัว", "น่ารัก"],
+            ["วิทยาศาสตร์", "แฟนตาซี"],
+            ["เรื่องจริง", "เรื่องโกหก"],
+            ["เกินจำเป็น", "จำเป็นมาก"],
+            ["ล้าสมัย", "ทันสมัย"],
+            ["รสจัด", "รสจืด"],
+            ["สิ่งที่ควรทำในที่ลับ", "สิ่งที่ทำในที่แจ้งได้"],
+            ["ดารา", "คนธรรมดา"],
+            ["ราคาถูก", "ราคาแพง"],
+            ["นุ่ม", "แข็ง"],
+            ["เสียงดัง", "เงียบ"],
+            ["เซ็กซี่", "ไม่เซ็กซี่"],
+            ["มีมารยาท", "ไม่มีมารยาท"]
+        ];
+
+        // --- Game State ---
+        let targetAngle = 90; // 0 to 180
+        let pointerAngle = 90;
+        let isScreenClosed = true;
+        const dialArea = document.getElementById('dial-area');
+        const pointerGroup = document.getElementById('pointer-group');
+        const targetGroup = document.getElementById('target-group');
+        const screenCover = document.getElementById('screen-cover');
+        const scoreText = document.getElementById('score-text');
+
+        // --- Interaction Logic (Drag/Touch) ---
+        function updatePointer(e) {
+            e.preventDefault(); // Prevent scrolling on mobile
+            
+            const rect = dialArea.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.bottom; // Semi-circle center is at bottom middle
+
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            // Calculate angle
+            const dx = clientX - centerX;
+            const dy = clientY - centerY;
+            let angleRad = Math.atan2(dy, dx); 
+            let angleDeg = angleRad * (180 / Math.PI);
+
+            // Adjust angle to match SVG coordinate system (0 is right, 180 is left in SVG logic usually, but here we want 0-180 arc)
+            // atan2 returns: 0 to -180 for upper half.
+            // We want left (180) to right (0).
+            
+            // Map standard Math to our dial
+            // Our dial visual: Left is 0 deg for CSS rotate? No, let's stick to SVG transform.
+            // In SVG transform rotate(deg, cx, cy): Positive is clockwise.
+            // We want pointer to follow mouse.
+            
+            let rotation = angleDeg + 180; // Make left side 0ish? No.
+            
+            // Simpler approach: 
+            // Normalized 0 to 180 where 0 is Left, 180 is Right.
+            // Math.atan2(y, x): Left is -180/180, Right is 0, Top is -90.
+            
+            // Let's calculate purely based on clamping.
+            // We want the angle relative to the horizontal line.
+            // Top (-90) should be 90 degrees in our game logic.
+            
+            // Convert to 0-180 scale
+            let gameAngle = -angleDeg; // Now Top is 90, Right is 0, Left is 180.
+            
+            // Clamp to 0-180
+            if (gameAngle < 0) gameAngle = 0;
+            if (gameAngle > 180) gameAngle = 180;
+
+            pointerAngle = gameAngle;
+            
+            // Update SVG rotation
+            // Note: In SVG rotate, 0 is 3 o'clock. We want 0 gameAngle (Left) to be 180 rotation?
+            // Let's sync: 
+            // Game 0 (Left) -> Rotate 180
+            // Game 90 (Top) -> Rotate 270 (or -90)
+            // Game 180 (Right) -> Rotate 360 (or 0)
+            
+            // Correction:
+            // pointer-group starts at line x2=10 (Left). So rotation 0 = pointing Left.
+            // So if gameAngle is 0 (Left), rotate is 0.
+            // If gameAngle is 90 (Top), rotate is 90.
+            // If gameAngle is 180 (Right), rotate is 180.
+            
+            // Re-calculate math.atan2 for this specific SVG setup
+            // pointer default is pointing LEFT.
+            // dy is negative (above center). dx can be +/-.
+            // atan2(-1, -1) = -135 deg (Top Left).
+            
+            // Let's simply use percentage of width for rough approximation or standard atan2 correction.
+            // Correct Math: Angle from negative x-axis (Left).
+            let rad = Math.atan2(dy, dx); // radians
+            let deg = rad * (180 / Math.PI); // -180 to 0 (top half)
+            
+            // Map -180 (Right) -> -90 (Top) -> 0 (Left)? No.
+            // Standard: 0 is Right, -90 is Top, -180 is Left.
+            
+            // We want: Left=0, Top=90, Right=180.
+            let finalAngle = -(deg + 180); 
+            
+            if(finalAngle < 0) finalAngle = 0;
+            if(finalAngle > 180) finalAngle = 180;
+            
+            pointerAngle = finalAngle;
+            pointerGroup.setAttribute('transform', `rotate(${finalAngle}, 100, 100)`);
+        }
+
+        // Add Listeners
+        dialArea.addEventListener('mousedown', (e) => {
+            document.addEventListener('mousemove', updatePointer);
+            document.addEventListener('mouseup', () => {
+                document.removeEventListener('mousemove', updatePointer);
+            }, {once: true});
+            updatePointer(e);
+        });
+
+        dialArea.addEventListener('touchstart', (e) => {
+            document.addEventListener('touchmove', updatePointer, {passive: false});
+            document.addEventListener('touchend', () => {
+                document.removeEventListener('touchmove', updatePointer);
+            }, {once: true});
+            updatePointer(e);
+        }, {passive: false});
+
+
+        // --- Game Logic ---
+
+        function newRound() {
+            // 1. Randomize Words
+            const pair = categories[Math.floor(Math.random() * categories.length)];
+            document.getElementById('word-left').innerText = pair[0];
+            document.getElementById('word-right').innerText = pair[1];
+
+            // 2. Randomize Target (Keep away from extreme edges, e.g., 20-160)
+            targetAngle = Math.floor(Math.random() * 140) + 20;
+            
+            // Update Target SVG rotation
+            // Target group defaults to Top (90 deg visually in standard circle? No, need to check path d)
+            // The path d for target is centered at Top (90 degrees in our 0-180 system).
+            // So if targetAngle is 90, rotation should be 0.
+            // If targetAngle is 0 (Left), rotation should be -90.
+            // If targetAngle is 180 (Right), rotation should be +90.
+            
+            const rotationOffset = targetAngle - 90;
+            targetGroup.setAttribute('transform', `rotate(${rotationOffset}, 100, 100)`);
+
+            // 3. Reset UI
+            isScreenClosed = false; // Start with screen OPEN for Psychic to see
+            toggleScreen(); // This will close it? No wait.
+            // Let's force Open state first ("Psychic View")
+            isScreenClosed = false; 
+            screenCover.style.opacity = "0.1"; // Semi-transparent so they see it
+            scoreText.innerText = "ตาคนใบ้: ดูเป้าหมายแล้วใบ้คำ!";
+            scoreText.style.color = "#d35400";
+        }
+
+        function toggleScreen() {
+            if (isScreenClosed) {
+                // Reveal (Opening)
+                screenCover.style.opacity = "0"; 
+                isScreenClosed = false;
+                calculateScore();
+            } else {
+                // Hide (Closing)
+                screenCover.style.opacity = "1";
+                isScreenClosed = true;
+                scoreText.innerText = "ตาทีมทาย: หมุนเข็มแล้วทายเลย";
+                scoreText.style.color = "#2c3e50";
+            }
+        }
+
+        function calculateScore() {
+            // Calculate difference
+            const diff = Math.abs(pointerAngle - targetAngle);
+            let points = 0;
+            let msg = "";
+
+            if (diff <= 4) { // Center roughly +/- 4 degrees
+                points = 4;
+                msg = "สุดยอด! (4 คะแนน)";
+            } else if (diff <= 12) {
+                points = 3;
+                msg = "เกือบเป๊ะ! (3 คะแนน)";
+            } else if (diff <= 20) {
+                points = 2;
+                msg = "พอได้อยู่ (2 คะแนน)";
+            } else {
+                points = 0;
+                msg = "ไกลไปหน่อย (0 คะแนน)";
+            }
+            scoreText.innerText = msg;
+            scoreText.style.color = points > 0 ? "#27ae60" : "#c0392b";
+        }
+
+        // Initialize
+        newRound();
+
+    </script>
+</body>
+</html>
